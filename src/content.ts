@@ -1,4 +1,5 @@
 import roadmapSource from '../docs/atlassian-edge-platform-roadmap.md?raw'
+import dualEnvironmentLabsSource from '../docs/dual-environment-labs.md?raw'
 
 export type ModuleMeta = {
   id: string
@@ -73,6 +74,12 @@ function splitTail(source: string, heading: string, nextHeading?: string) {
 }
 
 export const resourcePages: ResourcePage[] = [
+  {
+    id: 'dual-environment-labs',
+    title: '双环境实战 Lab',
+    summary: '18 个从零开始、可独立清理的本机 VM 与 AWS 实验。',
+    markdown: dualEnvironmentLabsSource.replace(/^# .*\n+/, ''),
+  },
   {
     id: 'schedule',
     title: '十二周执行计划',

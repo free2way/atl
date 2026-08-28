@@ -56,3 +56,25 @@ export function useTheme() {
 
   return { theme, toggleTheme: () => setTheme((current) => current === 'dark' ? 'light' : 'dark') }
 }
+
+const authKey = 'atl-course-authenticated'
+
+export function useCourseAuth() {
+  const [authenticated, setAuthenticated] = useState(() => sessionStorage.getItem(authKey) === 'true')
+
+  const login = useCallback((username: string, password: string) => {
+    const accepted = username === 'admin' && password === 'admin1234'
+    if (accepted) {
+      sessionStorage.setItem(authKey, 'true')
+      setAuthenticated(true)
+    }
+    return accepted
+  }, [])
+
+  const logout = useCallback(() => {
+    sessionStorage.removeItem(authKey)
+    setAuthenticated(false)
+  }, [])
+
+  return { authenticated, login, logout }
+}

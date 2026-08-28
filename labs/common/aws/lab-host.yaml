@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Ephemeral ATL lab host with no inbound ports; connect through SSM Session Manager.
+
+Parameters:
+  LabId:
+    Type: String
+    AllowedPattern: '^[a-z0-9-]+$'
+    Description: Lowercase lab identifier used for tags.
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues: [t3.micro, t3.small, t3.medium]
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Resources:
+  LabVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.42.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - { Key: Name, Value: !Sub 'atl-${LabId}-vpc' }
+        - { Key: Project, Value: atl-edge-lab }
+        - { Key: LabId, Value: !Ref LabId }
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - { Key: Project, Value: atl-edge-lab }
+        - { Key: LabId, Value: !Ref LabId }
+
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref LabVpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LabVpc
+      CidrBlock: 10.42.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - { Key: Name, Value: !Sub 'atl-${LabId}-public-a' }
+        - { Key: Project, Value: atl-edge-lab }
+        - { Key: LabId, Value: !Ref LabId }
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref LabVpc
+      Tags:
+        - { Key: Project, Value: atl-edge-lab }
+        - { Key: LabId, Value: !Ref LabId }
+
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref PublicSubnet
+
+  LabSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: No ingress; egress only for packages, images, and SSM
+      VpcId: !Ref LabVpc
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - { Key: Project, Value: atl-edge-lab }
+        - { Key: LabId, Value: !Ref LabId }
+
+  LabRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'atl-${LabId}-${AWS::Region}-ssm-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - { Key: Project, Value: atl-edge-lab }
+        - { Key: LabId, Value: !Ref LabId }
+
+  LabInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref LabRole]
+
+  LabHost:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: { Name: !Ref LabInstanceProfile }
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds: [!Ref LabSecurityGroup]
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            Encrypted: true
+            VolumeSize: 24
+            VolumeType: gp3
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          dnf install -y docker git jq make python3 python3-pip bind-utils nmap-ncat
+          systemctl enable --now docker amazon-ssm-agent
+          usermod -aG docker ec2-user
+          touch /var/lib/atl-lab-ready
+      Tags:
+        - { Key: Name, Value: !Sub 'atl-${LabId}-host' }
+        - { Key: Project, Value: atl-edge-lab }
+        - { Key: LabId, Value: !Ref LabId }
+        - { Key: AutoDelete, Value: 'true' }
+
+Outputs:
+  InstanceId:
+    Value: !Ref LabHost
+  SessionCommand:
+    Value: !Sub 'aws ssm start-session --target ${LabHost} --region ${AWS::Region}'
+  PublicIpForOutboundDiagnosticsOnly:
+    Value: !GetAtt LabHost.PublicIp

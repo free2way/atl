@@ -1,0 +1,59 @@
+services:
+  queue:
+    image: softwaremill/elasticmq-native:1.7.1
+    ports: ["9324:9324"]
+
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    command: -jar DynamoDBLocal.jar -inMemory -sharedDb
+    ports: ["8001:8000"]
+
+  broker:
+    build: ./platform
+    command: uvicorn broker:app --host 0.0.0.0 --port 8000
+    environment: &aws-local
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: us-east-1
+      SQS_ENDPOINT: http://queue:9324
+      DDB_ENDPOINT: http://dynamodb:8000
+    depends_on: [queue, dynamodb]
+    ports: ["8000:8000"]
+
+  worker:
+    build: ./platform
+    command: python worker.py
+    environment: *aws-local
+    depends_on: [queue, dynamodb]
+
+  authz:
+    build: ./authz
+    ports: ["9000:9000"]
+
+  backend-blue:
+    image: nginx:1.29-alpine
+    volumes:
+      - ./backends/blue.html:/usr/share/nginx/html/index.html:ro
+
+  backend-green:
+    image: nginx:1.29-alpine
+    volumes:
+      - ./backends/green.html:/usr/share/nginx/html/index.html:ro
+
+  envoy:
+    image: envoyproxy/envoy:v1.39.1
+    command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--log-level", "info"]
+    volumes:
+      - ./envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
+    depends_on: [authz, backend-blue, backend-green]
+    ports:
+      - "8080:10000"
+      - "9901:9901"
+
+  prometheus:
+    image: prom/prometheus:v3.7.1
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=1d"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on: [envoy]
+    ports: ["9090:9090"]

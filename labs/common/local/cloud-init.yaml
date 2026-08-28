@@ -1,0 +1,29 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+packages:
+  - ca-certificates
+  - curl
+  - dnsutils
+  - docker-compose-v2
+  - docker.io
+  - git
+  - jq
+  - make
+  - netcat-openbsd
+  - openssl
+  - python3
+  - python3-pip
+  - python3-venv
+  - unzip
+users:
+  - default
+  - name: ubuntu
+    groups: [adm, sudo, docker]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+runcmd:
+  - [systemctl, enable, --now, docker]
+  - [bash, -lc, "docker version && docker compose version > /var/log/atl-bootstrap.log 2>&1"]
+  - [touch, /var/lib/atl-lab-ready]
+final_message: "ATL local lab host is ready"

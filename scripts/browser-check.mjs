@@ -22,6 +22,14 @@ function assert(condition, message) {
 try {
   const response = await page.goto(baseURL, { waitUntil: 'networkidle' })
   assert(response?.ok(), `首页响应异常：${response?.status()}`)
+  await page.getByRole('heading', { name: '登录学习环境' }).waitFor()
+  await page.screenshot({ path: '/tmp/atl-login.png', fullPage: true })
+  await page.getByLabel('用户名').fill('admin')
+  await page.locator('#password').fill('wrong-password')
+  await page.getByRole('button', { name: /进入实验室/ }).click()
+  await page.getByRole('alert').filter({ hasText: '用户名或密码错误' }).waitFor()
+  await page.locator('#password').fill('admin1234')
+  await page.getByRole('button', { name: /进入实验室/ }).click()
   await page.getByRole('heading', { name: /从服务申请到/ }).waitFor()
   assert((await page.locator('body').innerText()).length > 500, '首页内容为空或过短')
   assert(await page.locator('.module-list button').count() === 12, '课程导航不是 12 个模块')
@@ -30,6 +38,10 @@ try {
   assert(await page.locator('.course-diagram .diagram-track').first().count() === 1, '架构图缺少流程轨道')
   await page.locator('.course-diagram').first().screenshot({ path: '/tmp/atl-architecture-light.png' })
   await page.screenshot({ path: '/tmp/atl-overview-desktop.png', fullPage: true })
+
+  await page.getByRole('button', { name: '双环境实战 Lab' }).click()
+  await page.getByRole('heading', { level: 1, name: '双环境实战 Lab' }).waitFor()
+  assert((await page.locator('.markdown-body').innerText()).includes('CREATE → VERIFY → EXERCISE → BREAK → DESTROY'), '双环境 Lab 手册未正确加载')
 
   await page.locator('.module-list button').nth(4).click()
   await page.waitForURL(/#\/module-4$/)
@@ -73,9 +85,14 @@ try {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), '移动端存在横向溢出')
   await page.screenshot({ path: '/tmp/atl-mobile-menu.png', fullPage: false })
 
+  await page.locator('.mobile-nav-head').getByRole('button', { name: '关闭课程目录' }).click()
+  await page.getByRole('button', { name: '退出登录' }).click()
+  await page.getByRole('heading', { name: '登录学习环境' }).waitFor()
+  assert(await page.evaluate(() => sessionStorage.getItem('atl-course-authenticated')) === null, '退出后登录会话仍然存在')
+
   if (errors.length) throw new Error(`浏览器运行时错误：\n${errors.join('\n')}`)
-  console.log('浏览器验收通过：桌面/移动、明暗主题、导航、搜索、进度、标题定位与架构图均正常。')
-  console.log('截图：/tmp/atl-overview-desktop.png, /tmp/atl-architecture-light.png, /tmp/atl-module-dark.png, /tmp/atl-mobile-menu.png')
+  console.log('浏览器验收通过：登录/退出、桌面/移动、明暗主题、导航、搜索、进度、标题定位与架构图均正常。')
+  console.log('截图：/tmp/atl-login.png, /tmp/atl-overview-desktop.png, /tmp/atl-architecture-light.png, /tmp/atl-module-dark.png, /tmp/atl-mobile-menu.png')
 } finally {
   await browser.close()
 }

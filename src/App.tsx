@@ -12,18 +12,20 @@ import {
   MagnifyingGlass,
   Moon,
   Play,
+  SignOut,
   Sun,
   TerminalWindow,
   X,
 } from '@phosphor-icons/react'
 import { extractHeadings, modules, overviewMarkdown, resourcePages, searchDocuments, type ModuleMeta } from './content'
-import { useHashRoute, useLocalStorageSet, useTheme } from './hooks'
+import { useCourseAuth, useHashRoute, useLocalStorageSet, useTheme } from './hooks'
 import { MarkdownView } from './MarkdownView'
 import { scrollToHeading } from './scroll'
+import { LoginPage } from './LoginPage'
 
 const labTotal = modules.reduce((sum, item) => sum + item.labCount, 0)
 
-function App() {
+function CourseApp({ onLogout }: { onLogout: () => void }) {
   const { route, navigate } = useHashRoute()
   const { items: completed, toggle: toggleComplete } = useLocalStorageSet('atl-completed-modules')
   const { theme, toggleTheme } = useTheme()
@@ -77,6 +79,9 @@ function App() {
           <a className="icon-button" href="https://github.com/free2way/atl" target="_blank" rel="noreferrer" aria-label="打开 GitHub 仓库">
             <GithubLogo size={20} />
           </a>
+          <button type="button" className="icon-button" onClick={onLogout} aria-label="退出登录">
+            <SignOut size={20} />
+          </button>
         </div>
       </header>
 
@@ -140,6 +145,11 @@ function App() {
       {searchOpen && <SearchDialog onClose={() => setSearchOpen(false)} navigate={go} />}
     </div>
   )
+}
+
+function App() {
+  const { authenticated, login, logout } = useCourseAuth()
+  return authenticated ? <CourseApp onLogout={logout} /> : <LoginPage onLogin={login} />
 }
 
 function ProgressSummary({ completed }: { completed: number }) {

@@ -10,9 +10,29 @@
 
 - 12 个按依赖排序的核心模块
 - 18 个包含配置、命令、故障注入与验收条件的 Lab
+- 每个 Lab 都能从全新 Multipass VM 或独立 AWS CloudFormation Stack 开始
 - 12 周执行计划与综合 Capstone
 - 全文搜索、学习进度、深浅主题和响应式课程导航
 - 完整技术手册：[docs/atlassian-edge-platform-roadmap.md](docs/atlassian-edge-platform-roadmap.md)
+- 双环境实战手册：[docs/dual-environment-labs.md](docs/dual-environment-labs.md)
+
+## 登录
+
+学习站点使用演示门禁：用户名 `admin`，密码 `admin1234`。认证状态只保存在当前浏览器标签页的 `sessionStorage` 中；这是课程访问提示，不是服务端安全认证。
+
+## 从零运行 Lab
+
+本机路线使用 Multipass 创建 Ubuntu 24.04 VM；AWS 路线使用 CloudFormation 创建 AL2023 EC2、独立 VPC、最小 SSM Role 和无入站规则的 Security Group。完整入口见 [labs/README.md](labs/README.md)。
+
+```bash
+# 本机 VM
+./labs/bin/create-local-vm.sh lab-04
+multipass shell atl-lab-04
+
+# AWS，需预先完成 AWS SSO 登录
+./labs/bin/create-aws-host.sh lab-04 ap-southeast-1 edge-lab
+./labs/bin/connect-aws-host.sh lab-04 ap-southeast-1 edge-lab
+```
 
 ## 本地运行
 
