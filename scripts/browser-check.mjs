@@ -1,6 +1,6 @@
 import { chromium } from 'playwright'
 
-const baseURL = process.env.ATL_BASE_URL ?? 'http://127.0.0.1:5173/atl/'
+const baseURL = process.env.ATL_BASE_URL ?? 'http://127.0.0.1:5173/'
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({
   viewport: { width: 1440, height: 1000 },

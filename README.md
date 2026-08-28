@@ -35,6 +35,8 @@ npm run preview
 
 `content:check` 会验证 12 个模块编号连续、每个模块都包含 Lab 和命令或配置、Markdown 代码围栏完整。推送到 `main` 后，GitHub Actions 会自动执行同一套校验并部署 GitHub Pages。
 
+站点默认以根路径构建，适用于 Vercel。GitHub Pages 工作流通过 `VITE_BASE_PATH=/atl/` 注入仓库子路径，因此两个平台可以从同一提交发布。
+
 ## 技术栈
 
 React 19、TypeScript、Vite 7、React Markdown、GitHub Actions 与 GitHub Pages。
